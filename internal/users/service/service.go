@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
+	"net/http"
 	"uuid"
 
+	customError "github.com/yourusername/go-wallets/internal/errors"
 	"github.com/yourusername/go-wallets/internal/users/model"
 	"github.com/yourusername/go-wallets/internal/users/repository"
 )
@@ -25,35 +26,43 @@ func NewUserService(repo repository.UserRepository) UserService {
 
 func (s *userService) Register(ctx context.Context, req model.CreateUserRequest) (*model.User, error) {
 	// Check if the email already exists
-	existingUser, err := s.repo.FindByEmail(ctx, req.Email)
-	if err == nil && existingUser != nil {
-		return nil, errors.New("email already exists")
+	existingUser, _ := s.repo.FindByEmail(ctx, req.Email)
+	if existingUser != nil {
+		return nil, customError.NewAppError(http.StatusConflict, "EMAIL_ALREADY_REGISTERED", "this email already registered.")
 	}
 	user := &model.User{
-		Id:       uuid.New().String(),
-		FullName: req.FullName,
-		Email:    req.Email,
-		PasswordHash: req.Password,//Todo: hash password
+		Id:           uuid.New().String(),
+		FullName:     req.FullName,
+		Email:        req.Email,
+		PasswordHash: req.Password, //Todo: hash password
 	}
-	err = s.repo.Create(ctx, user)
+	err := s.repo.Create(ctx, user)
 	if err != nil {
-		return nil, err
+		return nil, customError.ErrInternalServer
 	}
 	return user, nil
 }
 
 func (s *userService) GetProfile(ctx context.Context, id string) (*model.User, error) {
-	return s.repo.FindById(ctx, id)
+	user, err := s.repo.FindById(ctx, id)
+	if err != nil {
+		return nil, customError.NewAppError(http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+	}
+	return user, nil
 }
 
 func (s *userService) UpdateProfile(ctx context.Context, id string, req model.UpdateUserRequest) error {
-	user := &model.User{
+	user, err := s.repo.FindById(ctx, id)
+	if err != nil {
+		return customError.NewAppError(http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+	}
+	user = &model.User{
 		Id:       id,
 		FullName: req.FullName,
 	}
-	err := s.repo.Update(ctx, user)
+	err = s.repo.Update(ctx, user)
 	if err != nil {
-		return err
+		return customError.ErrInternalServer
 	}
 	return nil
 }

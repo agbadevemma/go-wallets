@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yourusername/go-wallets/internal/config"
 	"github.com/yourusername/go-wallets/internal/database"
+	"github.com/yourusername/go-wallets/internal/logger"
 	"github.com/yourusername/go-wallets/internal/users/handler"
 	"github.com/yourusername/go-wallets/internal/users/repository"
 	"github.com/yourusername/go-wallets/internal/users/service"
@@ -13,7 +13,9 @@ import (
 
 func main() {
 
-	log.Println("Starting the application...")
+	logger.InitLogger()
+	logger.Log.Info("Starting the application...")
+
 
 	// Load configuration
 	cfg := config.NewConfig()
@@ -21,11 +23,12 @@ func main() {
 	//connect to the database with retry logic
 	db, err := database.ConnectWithRetry(cfg.DBDSN)
 	if err != nil {
-		log.Fatalf("Failed to connect to the database after retries: %v", err)
+		logger.Log.Error("Failed to connect to the database after retries", "err", err)
+			return
 	}
 	defer db.Close()
 
-	log.Println("Successfully connected to the database.")
+	logger.Log.Info("Successfully connected to the database.")
 
 	// Continue with the rest of your application logic...
 	uRepo := repository.NewMysqlUserRepository(db)
@@ -38,9 +41,10 @@ func main() {
 	r.PUT("/api/v1/users/:id", uHandler.UpdateProfile)
 
 	// Start the server
-	log.Println("Server is running on port 8080...")
+	logger.Log.Info("Server is running on port 8080...")
 	if err:=r.Run(":8080"); err!=nil{
-		log.Fatalf("Failed to start the server: %v", err)
+		logger.Log.Error("Failed to start the server: %v", err)
+		return
 	}
 
 }
